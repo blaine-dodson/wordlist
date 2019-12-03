@@ -9,7 +9,7 @@ enum Command {
 	Invalid,
 	AddFiles(Vec<String>),
 	AddStdIn,
-	Rand(u32),
+	Pick(u32),
 }
 
 fn process_cmd_line() -> Command {
@@ -26,7 +26,7 @@ fn process_cmd_line() -> Command {
 			.arg(Arg::with_name("PATH")
 				.help("word files to read into the wordlist")
 				.multiple(true)))
-		.subcommand(SubCommand::with_name("rand")
+		.subcommand(SubCommand::with_name("pick")
 			.about("Display random words from the wordlist")
 			.version(clap::crate_version!())
 			.author(clap::crate_authors!())
@@ -55,9 +55,9 @@ fn process_cmd_line() -> Command {
 				Command::AddStdIn
 			}
 		},
-		("rand", Some(a)) => {
+		("pick", Some(a)) => {
 			let cnt = a.value_of("COUNT").unwrap().parse::<u32>().unwrap();
-			Command::Rand(cnt)
+			Command::Pick(cnt)
 		},
 		_ => Command::Invalid,
 	}
@@ -137,6 +137,14 @@ fn write_list_file(path: &str, words : &Vec<&str>) -> Result<(),std::io::Error> 
 	Ok(())
 }
 
+//fn split_words(words: &mut Vec<&str>, text: &str) {
+//	let lines = text.split_whitespace();
+//		
+//	for line in lines {
+//		words.push(line);
+//	}
+//}
+
 fn add_files(paths:Vec<String>) {
 	let mut strings = Vec::new();
 	
@@ -160,6 +168,8 @@ fn add_files(paths:Vec<String>) {
 		strings.push(text);
 	}
 	
+	println!("all files read");
+	
 	// create slices for each word
 	let mut words = Vec::new();
 	for string in &strings {
@@ -171,14 +181,51 @@ fn add_files(paths:Vec<String>) {
 		}
 	}
 	
+	println!("words split");
+	
 	cleanup(&mut words);
 	words.sort();
 	words.dedup();
+	
+	println!("words cleaned");
 	
 	match write_list_file(DB_NAME, &words){
 		Ok(()) => {},
 		Err(e) => println!("Could not write '{}', {}", DB_NAME, e),
 	}
+}
+
+fn pick_words(count:u32) {
+	//use rand;
+	
+	// read wordlist
+	let text = match read_list_file(DB_NAME) {
+		Ok(s) => s,
+		Err(e) => {
+			println!("Could not read '{}', {}", DB_NAME, e);
+			return;
+		},
+	};
+	
+	// split wordlist
+	let mut words = Vec::new();
+	for line in text.lines() {
+		words.push(line);
+	}
+	
+	// entropy calculation
+	let from = words.len() as f64;
+	let bits = from.log2().floor() as u32;
+	println!("Picking {} words from {}. {}-bits per word, {}-bits total entropy", 
+		count, words.len(), bits, bits*count);
+	
+	// pick and print words
+	println!("");
+	for _i in 0..count {
+		let word = words[rand::random::<usize>() % words.len()];
+		print!("{} ", word);
+	}
+	println!("\n");
 }
 
 fn main() {
@@ -195,11 +242,10 @@ fn main() {
 		Command::AddStdIn => {
 			println!("from stdin");
 		}
-		Command::Rand(c) => {
-			println!("print {} words", c);
+		Command::Pick(c) => {
+			pick_words(c);
 		},
 	}
-	
 	
 	println!("Done!");
 }
