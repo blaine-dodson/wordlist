@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 
 rand = "0.7"
+unicode-segmentation = "1"
 
 [dependencies.clap]
 version      = "2"

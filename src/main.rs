@@ -7,8 +7,7 @@ const DB_NAME:&str = "word-list.txt";
 
 enum Command {
 	Invalid,
-	AddFiles(Vec<String>),
-	AddStdIn,
+	AddFiles{input:Vec<String>, output:String, debug:bool},
 	Pick(u32),
 }
 
@@ -20,12 +19,25 @@ fn process_cmd_line() -> Command {
 		.version(clap::crate_version!())
 		.author(clap::crate_authors!())
 		.subcommand(SubCommand::with_name("add")
-			.about("Add wordlist files to master file")
+			.about("Add text files to a wordlist file")
 			.version(clap::crate_version!())
 			.author(clap::crate_authors!())
 			.arg(Arg::with_name("PATH")
 				.help("word files to read into the wordlist")
-				.multiple(true)))
+				.multiple(true)
+			)
+			.arg(Arg::with_name("output")
+				.short("o")
+				.help(&format!("Specify a target wordlist file, defaults to '{}'", DB_NAME))
+				.takes_value(true)
+				.multiple(false)
+				.number_of_values(1)
+			)
+			.arg(Arg::with_name("debug")
+				.short("d")
+				.hidden(true)
+			)
+		)
 		.subcommand(SubCommand::with_name("pick")
 			.about("Display random words from the wordlist")
 			.version(clap::crate_version!())
@@ -36,31 +48,46 @@ fn process_cmd_line() -> Command {
 				.validator(|s| match s.parse::<u32>() {
 					Ok(_) => Ok(()),
 					Err(_) => Err(String::from("must be positive integer")),
-				})))
+				})
+			)
+		)
 		.get_matches();
 	
-	return match args.subcommand() {
+	let mut cmd = Command::Invalid;
+	
+	match args.subcommand() {
 		("add" , Some(a)) => {
+			let mut paths = Vec::new();
+			let mut output = String::from(DB_NAME);
+			let mut debug = false;
+			
 			if a.is_present("PATH") {
 				let values = a.values_of("PATH").unwrap();
-				
-				let mut paths = Vec::new();
 				for v in values {
 					println!("paths are: {:?}", v);
 					paths.push(String::from(v));
 				}
-				
-				Command::AddFiles(paths)
-			} else {
-				Command::AddStdIn
 			}
+			// else paths empty
+			
+			if a.is_present("output") {
+				output = a.value_of("output").unwrap().to_string();
+			}
+			
+			if a.is_present("debug") {
+				debug = true;
+			}
+			
+			cmd = Command::AddFiles{input:paths, output:output, debug:debug};
 		},
 		("pick", Some(a)) => {
 			let cnt = a.value_of("COUNT").unwrap().parse::<u32>().unwrap();
-			Command::Pick(cnt)
+			cmd = Command::Pick(cnt);
 		},
-		_ => Command::Invalid,
-	}
+		_ => {},
+	};
+	
+	cmd
 }
 
 fn read_list_file(path: &str) -> Result<String,std::io::Error> {
@@ -78,17 +105,11 @@ fn read_list_file(path: &str) -> Result<String,std::io::Error> {
 }
 
 
-fn cleanup(words : &mut Vec<&str>) {
+fn cleanup(words : &mut Vec<&str>, debug:bool) {
 	let mut bad = Vec::new();
 	
 	// find everything we dont like
-	for (i,word) in words.iter().enumerate() {
-		
-		// non-alpha
-		if ! word.chars().all(char::is_alphabetic) {
-			bad.push(i);
-			continue;
-		}
+	for (i, word) in words.iter_mut().enumerate() {
 		
 		// too short
 		if word.len() < 3 {
@@ -96,8 +117,21 @@ fn cleanup(words : &mut Vec<&str>) {
 			continue;
 		}
 		
+		// numbers
+		if word.chars().any(char::is_numeric) {
+			bad.push(i);
+			continue;
+		}
+		
+		// embeded punctuation
+		if word.chars().any(|x| x == '.') {
+			bad.push(i);
+			continue;
+		}
+		
+		
 		// 'words with more than 2 repetitions'
-		let mut ch = 'm'; // nothing starts with mm
+		let mut ch = '0'; // numbers already removed
 		let mut cnt = 0;
 		for c in word.chars() {
 			if ch == c {
@@ -116,7 +150,11 @@ fn cleanup(words : &mut Vec<&str>) {
 	// get rid of it
 	while bad.len() != 0 {
 		let i = bad.pop().unwrap();
-		words.remove(i);
+		if debug {
+			println!("'{}'", words.remove(i));
+		} else {
+			words.remove(i);
+		}
 	}
 }
 
@@ -145,37 +183,51 @@ fn write_list_file(path: &str, words : &Vec<&str>) -> Result<(),std::io::Error> 
 //	}
 //}
 
-fn add_files(paths:Vec<String>) {
+fn add_files(paths:Vec<String>, out:String, debug:bool) {
 	let mut strings = Vec::new();
 	
-	// read in old if it exists
-	match read_list_file(DB_NAME) {
-		Ok(s) => strings.push(s),
-		Err(e) => println!("Could not read '{}', {}", DB_NAME, e),
-	};
-	
-	// read in new
-	for path in paths {
-		let text = match read_list_file(&path) {
-			Ok(s) => s,
-			Err(e) => {
-				println!("Could not read '{}', {}", path, e);
-				continue;
-			}
-		};
+	// Read in new text
+	if paths.len() == 0 {
+		use std::io::{self, Read};
 		
-		let text = text.to_lowercase();
+		// read from stdin
+		let mut text = String::new();
+		io::stdin().read_to_string(&mut text).unwrap();
 		strings.push(text);
+	} else {
+		// read in new
+		for path in paths {
+			let text = match read_list_file(&path) {
+				Ok(s) => s,
+				Err(e) => {
+					println!("Could not read '{}', {}", path, e);
+					continue;
+				}
+			};
+		
+			let text = text.to_lowercase();
+			strings.push(text);
+		}
 	}
 	
-	println!("all files read");
+	
+	// read in old if it exists
+	match read_list_file(&out) {
+		Ok(s) => strings.push(s),
+		Err(e) => println!("Could not read '{}', {}", out, e),
+	};
+	
+	println!("all input read");
+	
+	
+	extern crate unicode_segmentation;
+	use unicode_segmentation::UnicodeSegmentation;
 	
 	// create slices for each word
 	let mut words = Vec::new();
 	for string in &strings {
-		//let lines = string.lines();
-		let lines = string.split_whitespace();
-		
+		//let lines = string.split_whitespace();
+		let lines = string.unicode_words().collect::<Vec<&str>>();
 		for line in lines {
 			words.push(line);
 		}
@@ -183,15 +235,18 @@ fn add_files(paths:Vec<String>) {
 	
 	println!("words split");
 	
-	cleanup(&mut words);
+	
+	// cleanup
 	words.sort();
 	words.dedup();
+	cleanup(&mut words,debug);
 	
 	println!("words cleaned");
 	
-	match write_list_file(DB_NAME, &words){
+	
+	match write_list_file(&out, &words){
 		Ok(()) => {},
-		Err(e) => println!("Could not write '{}', {}", DB_NAME, e),
+		Err(e) => println!("Could not write '{}', {}", out, e),
 	}
 }
 
@@ -236,12 +291,12 @@ fn main() {
 			println!("invalid command");
 			process::exit(1)
 		},
-		Command::AddFiles(p) => {
-			add_files(p);
+		Command::AddFiles{input,output,debug} => {
+			add_files(input,output,debug);
 		},
-		Command::AddStdIn => {
-			println!("from stdin");
-		}
+//		Command::AddStdIn => {
+//			println!("from stdin");
+//		}
 		Command::Pick(c) => {
 			pick_words(c);
 		},
