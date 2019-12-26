@@ -112,7 +112,7 @@ fn cleanup(words : &mut Vec<&str>, debug:bool) {
 	for (i, word) in words.iter_mut().enumerate() {
 		
 		// too short
-		if word.len() < 3 {
+		if word.len() < 4 {
 			bad.push(i);
 			continue;
 		}
@@ -193,6 +193,7 @@ fn add_files(paths:Vec<String>, out:String, debug:bool) {
 		// read from stdin
 		let mut text = String::new();
 		io::stdin().read_to_string(&mut text).unwrap();
+		let text = text.to_lowercase();
 		strings.push(text);
 	} else {
 		// read in new
