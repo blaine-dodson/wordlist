@@ -184,6 +184,8 @@ fn write_list_file(path: &str, words : &Vec<&str>) -> Result<(),std::io::Error> 
 //}
 
 fn add_files(paths:Vec<String>, out:String, debug:bool) {
+	use unicode_segmentation::UnicodeSegmentation;
+	
 	let mut strings = Vec::new();
 	
 	// Read in new text
@@ -221,9 +223,6 @@ fn add_files(paths:Vec<String>, out:String, debug:bool) {
 	println!("all input read");
 	
 	
-	extern crate unicode_segmentation;
-	use unicode_segmentation::UnicodeSegmentation;
-	
 	// create slices for each word
 	let mut words = Vec::new();
 	for string in &strings {
@@ -244,6 +243,7 @@ fn add_files(paths:Vec<String>, out:String, debug:bool) {
 	
 	println!("words cleaned");
 	
+	// TODO: report how many new words
 	
 	match write_list_file(&out, &words){
 		Ok(()) => {},
