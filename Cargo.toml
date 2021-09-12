@@ -1,8 +1,15 @@
 [package]
-name = "wordlist"
+name    = "wordlist"
 version = "0.1.0"
 authors = ["Ammon Dodson <github@adodson.e4ward.com>"]
 edition = "2018"
+readme  = "README.md"
+license = "MIT"
+repository = "https://github.com/ammon0/wordlist"
+keywords  = ["password", "passphrase", "diceware"]
+categories = ["command-line-utilities", "text-processing"]
+description = "A tool for building word lists and generating passphrases from them--diceware style."
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -6,6 +6,7 @@
 Use your own text sources to create a unique list of familiar words for passphrase generation.
 
 ![xkcd: Password Strength](https://imgs.xkcd.com/comics/password_strength.png)
+
 Hotlinked from [xkcd](https://xkcd.com/936/), used under a Creative Commons Attribution-NonCommercial 2.5 License.
 
 ## Usage
@@ -25,7 +26,7 @@ Add text files to a wordlist file
     -o <output>        Specify a target wordlist file, defaults to 'word-list.txt'
 
 #### Args
-    <PATH>...    word files to read into the wordlist
+    <PATH>...    text files to read into the wordlist. Defaults to reading from the command line if left blank.
 
 ### Pick
 Display random words from the wordlist

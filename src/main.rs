@@ -1,7 +1,14 @@
 
 
+#![deny(clippy::all)]
+#![deny(clippy::correctness)]
+#![deny(clippy::style)]
+#![deny(clippy::complexity)]
+#![deny(clippy::perf)]
+//#![deny(clippy::pedantic)]
+#![deny(clippy::nursery)]
+#![deny(clippy::cargo)]
 
-use std::{fs};
 
 const DB_NAME:&str = "word-list.txt";
 
@@ -23,7 +30,7 @@ fn process_cmd_line() -> Command {
 			.version(clap::crate_version!())
 			.author(clap::crate_authors!())
 			.arg(Arg::with_name("PATH")
-				.help("word files to read into the wordlist")
+				.help("text files to read into the wordlist. leave blank to read from command line.")
 				.multiple(true)
 			)
 			.arg(Arg::with_name("output")
@@ -53,7 +60,6 @@ fn process_cmd_line() -> Command {
 		)
 		.get_matches();
 	
-	let mut cmd = Command::Invalid;
 	
 	match args.subcommand() {
 		("add" , Some(a)) => {
@@ -78,20 +84,18 @@ fn process_cmd_line() -> Command {
 				debug = true;
 			}
 			
-			cmd = Command::AddFiles{input:paths, output:output, debug:debug};
+			Command::AddFiles{input:paths, output, debug}
 		},
 		("pick", Some(a)) => {
 			let cnt = a.value_of("COUNT").unwrap().parse::<u32>().unwrap();
-			cmd = Command::Pick(cnt);
+			Command::Pick(cnt)
 		},
-		_ => {},
-	};
-	
-	cmd
+		_ => Command::Invalid,
+	}
 }
 
 fn read_list_file(path: &str) -> Result<String,std::io::Error> {
-	use std::io::Read;
+	use std::{fs,io::Read};
 	
 	let mut fd = fs::OpenOptions::new()
 		.read(true)
@@ -112,23 +116,16 @@ fn cleanup(words : &mut Vec<&str>, debug:bool) {
 	for (i, word) in words.iter_mut().enumerate() {
 		
 		// too short
-		if word.len() < 4 {
+		if word.len() < 3 {
 			bad.push(i);
 			continue;
 		}
 		
-		// numbers
-		if word.chars().any(char::is_numeric) {
+		// remove non-alpha
+		if !word.chars().all(char::is_alphabetic) {
 			bad.push(i);
 			continue;
 		}
-		
-		// embeded punctuation
-		if word.chars().any(|x| x == '.') {
-			bad.push(i);
-			continue;
-		}
-		
 		
 		// 'words with more than 2 repetitions'
 		let mut ch = '0'; // numbers already removed
@@ -148,7 +145,7 @@ fn cleanup(words : &mut Vec<&str>, debug:bool) {
 	}
 	
 	// get rid of it
-	while bad.len() != 0 {
+	while ! bad.is_empty() {
 		let i = bad.pop().unwrap();
 		if debug {
 			println!("'{}'", words.remove(i));
@@ -158,8 +155,9 @@ fn cleanup(words : &mut Vec<&str>, debug:bool) {
 	}
 }
 
-fn write_list_file(path: &str, words : &Vec<&str>) -> Result<(),std::io::Error> {
-	use std::io::Write;
+
+fn write_list_file(path: &str, words : &[&str]) -> Result<(),std::io::Error> {
+	use std::{fs,io::Write};
 	
 	let mut fd = fs::OpenOptions::new()
 		.write(true)
@@ -168,28 +166,21 @@ fn write_list_file(path: &str, words : &Vec<&str>) -> Result<(),std::io::Error> 
 		.open(path)?;
 	
 	for word in words {
-		fd.write(word.as_bytes())?;
-		fd.write(b"\n")?;
+		fd.write_all(word.as_bytes())?;
+		fd.write_all(b"\n")?;
 	}
 	
 	Ok(())
 }
 
-//fn split_words(words: &mut Vec<&str>, text: &str) {
-//	let lines = text.split_whitespace();
-//		
-//	for line in lines {
-//		words.push(line);
-//	}
-//}
 
-fn add_files(paths:Vec<String>, out:String, debug:bool) {
+fn add_files(paths:Vec<String>, out:&str, debug:bool) {
 	use unicode_segmentation::UnicodeSegmentation;
 	
 	let mut strings = Vec::new();
 	
 	// Read in new text
-	if paths.len() == 0 {
+	if paths.is_empty() {
 		use std::io::{self, Read};
 		
 		// read from stdin
@@ -215,7 +206,7 @@ fn add_files(paths:Vec<String>, out:String, debug:bool) {
 	
 	
 	// read in old if it exists
-	match read_list_file(&out) {
+	match read_list_file(out) {
 		Ok(s) => strings.push(s),
 		Err(e) => println!("Could not read '{}', {}", out, e),
 	};
@@ -245,15 +236,13 @@ fn add_files(paths:Vec<String>, out:String, debug:bool) {
 	
 	// TODO: report how many new words
 	
-	match write_list_file(&out, &words){
+	match write_list_file(out, &words){
 		Ok(()) => {},
 		Err(e) => println!("Could not write '{}', {}", out, e),
 	}
 }
 
 fn pick_words(count:u32) {
-	//use rand;
-	
 	// read wordlist
 	let text = match read_list_file(DB_NAME) {
 		Ok(s) => s,
@@ -276,7 +265,7 @@ fn pick_words(count:u32) {
 		count, words.len(), bits, bits*count);
 	
 	// pick and print words
-	println!("");
+	println!();
 	for _i in 0..count {
 		let word = words[rand::random::<usize>() % words.len()];
 		print!("{} ", word);
@@ -293,11 +282,8 @@ fn main() {
 			process::exit(1)
 		},
 		Command::AddFiles{input,output,debug} => {
-			add_files(input,output,debug);
+			add_files(input,&output,debug);
 		},
-//		Command::AddStdIn => {
-//			println!("from stdin");
-//		}
 		Command::Pick(c) => {
 			pick_words(c);
 		},
