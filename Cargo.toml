@@ -2,7 +2,7 @@
 name    = "wordlist"
 version = "0.1.0"
 authors = ["Ammon Dodson <github@adodson.e4ward.com>"]
-edition = "2018"
+edition = "2021"
 readme  = "README.md"
 license = "MIT"
 repository = "https://github.com/ammon0/wordlist"
