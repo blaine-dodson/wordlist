@@ -1,11 +1,11 @@
-// #![deny(clippy::all)]
-// #![deny(clippy::correctness)]
-// #![deny(clippy::style)]
-// #![deny(clippy::complexity)]
-// #![deny(clippy::perf)]
+#![deny(clippy::all)]
+#![deny(clippy::correctness)]
+#![deny(clippy::style)]
+#![deny(clippy::complexity)]
+#![deny(clippy::perf)]
 // #![deny(clippy::pedantic)]
-// #![deny(clippy::nursery)]
-// #![deny(clippy::cargo)]
+#![deny(clippy::nursery)]
+#![deny(clippy::cargo)]
 
 const DB_NAME: &str = "word-list.txt";
 
@@ -223,7 +223,7 @@ fn add_files(paths: Vec<String>, out: &str, debug: bool) {
     println!("words split");
 
     // cleanup
-    words.sort();
+    words.sort_unstable();
     words.dedup();
     cleanup(&mut words, debug);
 
@@ -257,7 +257,7 @@ fn pick_words(count: u32) {
     let from = words.len() as f64;
     let bits = from.log2().floor() as u32;
     println!(
-        "Picking {} words from {}. {}-bits per word, {}-bits total entropy",
+        "Picking {} words from {}. {}-bits per word, {}-bits total entropy\n",
         count,
         words.len(),
         bits,
@@ -265,8 +265,7 @@ fn pick_words(count: u32) {
     );
 
     // pick and print words
-    println!();
-    for _i in 0..count {
+    for _ in 0..count {
         let word = words[rand::random::<usize>() % words.len()];
         print!("{} ", word);
     }
