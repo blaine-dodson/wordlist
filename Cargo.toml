@@ -1,11 +1,11 @@
 [package]
 name    = "wordlist"
 version = "0.1.1"
-authors = ["Ammon Dodson <github@adodson.e4ward.com>"]
+authors = ["Blaine Dodson <blaine.dodson@pm.me>"]
 edition = "2021"
 readme  = "README.md"
 license = "MIT"
-repository = "https://github.com/ammon0/wordlist"
+repository = "https://github.com/blaine-dodson/wordlist"
 keywords  = ["password", "passphrase", "diceware"]
 categories = ["command-line-utilities", "text-processing"]
 description = "A tool for building word lists and generating passphrases from them--diceware style."
