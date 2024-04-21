@@ -7,37 +7,33 @@ enum Command {
 }
 
 fn process_cmd_line() -> Command {
-    use clap::{App, Arg, SubCommand};
+    use clap::{command, Arg};
 
     // parse arguments
-    let args = App::new("A wordlist manager")
-        .version(clap::crate_version!())
-        .author(clap::crate_authors!())
-        .subcommand(SubCommand::with_name("add")
+    let args = command!()
+        // .version(clap::crate_version!())
+        // .author(clap::crate_authors!())
+        .subcommand(clap::Command::new("add")
             .about("Add text files to a wordlist file")
-            .version(clap::crate_version!())
-            .author(clap::crate_authors!())
-            .arg(Arg::with_name("PATH")
+            .arg(Arg::new("PATH")
                 .help("text files to read into the wordlist. leave blank to read from command line.")
                 .multiple(true)
             )
-            .arg(Arg::with_name("output")
-                .short("o")
-                .help(&format!("Specify a target wordlist file, defaults to '{}'", DB_NAME))
+            .arg(Arg::new("output")
+                .short('o')
+                .help("Specify a target wordlist file'")
                 .takes_value(true)
                 .multiple(false)
                 .number_of_values(1)
             )
-            .arg(Arg::with_name("debug")
-                .short("d")
-                .hidden(true)
+            .arg(Arg::new("debug")
+                .short('d')
+                .hide(true)
             )
         )
-        .subcommand(SubCommand::with_name("pick")
+        .subcommand(clap::Command::new("pick")
             .about("Display random words from the wordlist")
-            .version(clap::crate_version!())
-            .author(clap::crate_authors!())
-            .arg(Arg::with_name("COUNT")
+            .arg(Arg::new("COUNT")
                 .help("the number of words to display")
                 .required(true)
                 .validator(|s| match s.parse::<u32>() {
@@ -49,7 +45,7 @@ fn process_cmd_line() -> Command {
         .get_matches();
 
     match args.subcommand() {
-        ("add", Some(a)) => {
+        Some(("add", a)) => {
             let mut paths = Vec::new();
             let mut output = String::from(DB_NAME);
 
@@ -71,7 +67,7 @@ fn process_cmd_line() -> Command {
                 output,
             }
         }
-        ("pick", Some(a)) => {
+        Some(("pick", a)) => {
             let cnt = a.value_of("COUNT").unwrap().parse::<u32>().unwrap();
             Command::Pick(cnt)
         }
@@ -191,7 +187,7 @@ fn add_files(paths: Vec<String>, out: &str) {
     // TODO: report how many new words
 
     match write_list_file(out, &words) {
-        Ok(()) => {}
+        Ok(()) => println!("Done"),
         Err(e) => println!("Could not write '{}', {}", out, e),
     }
 }
