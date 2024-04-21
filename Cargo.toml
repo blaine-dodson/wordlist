@@ -15,7 +15,7 @@ description = "A tool for building word lists and generating passphrases from th
 
 [dependencies]
 
-rand = "0.7"
+rand = "0.8"
 unicode-segmentation = "1"
 
 [dependencies.clap]

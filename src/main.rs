@@ -1,21 +1,8 @@
-#![deny(clippy::all)]
-#![deny(clippy::correctness)]
-#![deny(clippy::style)]
-#![deny(clippy::complexity)]
-#![deny(clippy::perf)]
-// #![deny(clippy::pedantic)]
-#![deny(clippy::nursery)]
-#![deny(clippy::cargo)]
-
 const DB_NAME: &str = "word-list.txt";
 
 enum Command {
     Invalid,
-    AddFiles {
-        input: Vec<String>,
-        output: String,
-        debug: bool,
-    },
+    AddFiles { input: Vec<String>, output: String },
     Pick(u32),
 }
 
@@ -24,48 +11,47 @@ fn process_cmd_line() -> Command {
 
     // parse arguments
     let args = App::new("A wordlist manager")
-		.version(clap::crate_version!())
-		.author(clap::crate_authors!())
-		.subcommand(SubCommand::with_name("add")
-			.about("Add text files to a wordlist file")
-			.version(clap::crate_version!())
-			.author(clap::crate_authors!())
-			.arg(Arg::with_name("PATH")
-				.help("text files to read into the wordlist. leave blank to read from command line.")
-				.multiple(true)
-			)
-			.arg(Arg::with_name("output")
-				.short("o")
-				.help(&format!("Specify a target wordlist file, defaults to '{}'", DB_NAME))
-				.takes_value(true)
-				.multiple(false)
-				.number_of_values(1)
-			)
-			.arg(Arg::with_name("debug")
-				.short("d")
-				.hidden(true)
-			)
-		)
-		.subcommand(SubCommand::with_name("pick")
-			.about("Display random words from the wordlist")
-			.version(clap::crate_version!())
-			.author(clap::crate_authors!())
-			.arg(Arg::with_name("COUNT")
-				.help("the number of words to display")
-				.required(true)
-				.validator(|s| match s.parse::<u32>() {
-					Ok(_) => Ok(()),
-					Err(_) => Err(String::from("must be positive integer")),
-				})
-			)
-		)
-		.get_matches();
+        .version(clap::crate_version!())
+        .author(clap::crate_authors!())
+        .subcommand(SubCommand::with_name("add")
+            .about("Add text files to a wordlist file")
+            .version(clap::crate_version!())
+            .author(clap::crate_authors!())
+            .arg(Arg::with_name("PATH")
+                .help("text files to read into the wordlist. leave blank to read from command line.")
+                .multiple(true)
+            )
+            .arg(Arg::with_name("output")
+                .short("o")
+                .help(&format!("Specify a target wordlist file, defaults to '{}'", DB_NAME))
+                .takes_value(true)
+                .multiple(false)
+                .number_of_values(1)
+            )
+            .arg(Arg::with_name("debug")
+                .short("d")
+                .hidden(true)
+            )
+        )
+        .subcommand(SubCommand::with_name("pick")
+            .about("Display random words from the wordlist")
+            .version(clap::crate_version!())
+            .author(clap::crate_authors!())
+            .arg(Arg::with_name("COUNT")
+                .help("the number of words to display")
+                .required(true)
+                .validator(|s| match s.parse::<u32>() {
+                    Ok(_) => Ok(()),
+                    Err(_) => Err(String::from("must be positive integer")),
+                })
+            )
+        )
+        .get_matches();
 
     match args.subcommand() {
         ("add", Some(a)) => {
             let mut paths = Vec::new();
             let mut output = String::from(DB_NAME);
-            let mut debug = false;
 
             if a.is_present("PATH") {
                 let values = a.values_of("PATH").unwrap();
@@ -80,14 +66,9 @@ fn process_cmd_line() -> Command {
                 output = a.value_of("output").unwrap().to_string();
             }
 
-            if a.is_present("debug") {
-                debug = true;
-            }
-
             Command::AddFiles {
                 input: paths,
                 output,
-                debug,
             }
         }
         ("pick", Some(a)) => {
@@ -110,49 +91,28 @@ fn read_list_file(path: &str) -> Result<String, std::io::Error> {
     Ok(text)
 }
 
-fn cleanup(words: &mut Vec<&str>, debug: bool) {
-    let mut bad = Vec::new();
-
-    // find everything we dont like
-    for (i, word) in words.iter_mut().enumerate() {
-        // too short
-        if word.len() < 3 {
-            bad.push(i);
-            continue;
-        }
-
-        // remove non-alpha
-        if !word.chars().all(char::is_alphabetic) {
-            bad.push(i);
-            continue;
-        }
-
-        // 'words with more than 2 repetitions'
-        let mut ch = '0'; // numbers already removed
-        let mut cnt = 0;
-        for c in word.chars() {
-            if ch == c {
-                cnt += 1;
-            } else {
-                cnt = 1;
-                ch = c;
+fn cleanup<'a, I: Iterator<Item = &'a str>>(input: I) -> Vec<&'a str> {
+    // todo!()
+    input
+        .filter(|w| w.len() >= 3) // too short
+        .filter(|w| w.chars().all(char::is_alphabetic)) // non-alfa
+        .filter(|w| {
+            let mut last_c = '*'; // non-alfa already removed
+            let mut cnt = 0;
+            for c in w.chars() {
+                if last_c == c {
+                    cnt += 1;
+                } else {
+                    cnt = 1;
+                    last_c = c;
+                }
+                if cnt > 2 {
+                    return false;
+                }
             }
-            if cnt > 2 {
-                bad.push(i);
-                break;
-            }
-        }
-    }
-
-    // get rid of it
-    while !bad.is_empty() {
-        let i = bad.pop().unwrap();
-        if debug {
-            println!("'{}'", words.remove(i));
-        } else {
-            words.remove(i);
-        }
-    }
+            true
+        })
+        .collect()
 }
 
 fn write_list_file(path: &str, words: &[&str]) -> Result<(), std::io::Error> {
@@ -172,7 +132,7 @@ fn write_list_file(path: &str, words: &[&str]) -> Result<(), std::io::Error> {
     Ok(())
 }
 
-fn add_files(paths: Vec<String>, out: &str, debug: bool) {
+fn add_files(paths: Vec<String>, out: &str) {
     use unicode_segmentation::UnicodeSegmentation;
 
     let mut strings = Vec::new();
@@ -213,7 +173,6 @@ fn add_files(paths: Vec<String>, out: &str, debug: bool) {
     // create slices for each word
     let mut words = Vec::new();
     for string in &strings {
-        //let lines = string.split_whitespace();
         let lines = string.unicode_words().collect::<Vec<&str>>();
         for line in lines {
             words.push(line);
@@ -225,7 +184,7 @@ fn add_files(paths: Vec<String>, out: &str, debug: bool) {
     // cleanup
     words.sort_unstable();
     words.dedup();
-    cleanup(&mut words, debug);
+    let words = cleanup(words.into_iter());
 
     println!("words cleaned");
 
@@ -237,7 +196,21 @@ fn add_files(paths: Vec<String>, out: &str, debug: bool) {
     }
 }
 
+fn join<'a, I: Iterator<Item = &'a str>>(mut input: I) -> String {
+    let mut output = String::new();
+    if let Some(s) = input.next() {
+        output.push_str(s);
+    }
+    for s in input {
+        output.push(' ');
+        output.push_str(s);
+    }
+    output
+}
+
 fn pick_words(count: u32) {
+    use rand::seq::SliceRandom;
+
     // read wordlist
     let text = match read_list_file(DB_NAME) {
         Ok(s) => s,
@@ -253,23 +226,25 @@ fn pick_words(count: u32) {
         words.push(line);
     }
 
-    // entropy calculation
-    let from = words.len() as f64;
-    let bits = from.log2().floor() as u32;
-    println!(
-        "Picking {} words from {}. {}-bits per word, {}-bits total entropy\n",
-        count,
-        words.len(),
-        bits,
-        bits * count
-    );
+    //pick words
+    let mut rng = rand::thread_rng();
+    let output = join((0..count).map(|_| *words.choose(&mut rng).unwrap()));
 
-    // pick and print words
-    for _ in 0..count {
-        let word = words[rand::random::<usize>() % words.len()];
-        print!("{} ", word);
-    }
-    println!("\n");
+    println!("\n{}\n", output);
+
+    // entropy calculation
+    let char_cnt = output.len();
+    let char_bits = 26_f32.log2();
+    let bits_from_chars = char_bits * char_cnt as f32;
+
+    let list_cnt = words.len();
+    let word_bits = (list_cnt as f32).log2();
+    let bits_from_words = word_bits * count as f32;
+    println!(
+        "{} characters at {:.2}-bits per char is {:.2}-bits of entropy
+{} words at {:.2}-bits per word is {:.2}-bits of entropy",
+        char_cnt, char_bits, bits_from_chars, count, word_bits, bits_from_words,
+    );
 }
 
 fn main() {
@@ -280,17 +255,11 @@ fn main() {
             println!("invalid command");
             process::exit(1)
         }
-        Command::AddFiles {
-            input,
-            output,
-            debug,
-        } => {
-            add_files(input, &output, debug);
+        Command::AddFiles { input, output, .. } => {
+            add_files(input, &output);
         }
         Command::Pick(c) => {
             pick_words(c);
         }
     }
-
-    println!("Done!");
 }
